@@ -1,0 +1,74 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"net/http"
+	"net/http/httptrace"
+	"time"
+)
+
+var start time.Time
+var lasttime time.Time
+var done int
+
+type ConnectionTimes struct {
+	start     time.Time // Start of connection
+	connect   time.Time // Connected start writing
+	endwrite  time.Time // Request written
+	beginread time.Time // First byte of input
+	done      time.Time // Connection closed
+}
+
+func OutputResults() {
+	timeTaken := lasttime.Sub(start)
+	fmt.Printf("Time taken for tests:   %.3f seconds\n", timeTaken.Seconds())
+	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done)/timeTaken.Seconds())
+}
+
+func main() {
+	flag.Parse()
+
+	url := flag.Arg(0)
+	if url == "" {
+		fmt.Println("Usage: go-ab [http[s]://]hostname[:port]/path")
+		return
+	}
+
+	start = time.Now()
+	lasttime = time.Now()
+
+	connTimes := &ConnectionTimes{}
+
+	trace := &httptrace.ClientTrace{
+		ConnectStart: func(network, addr string) {
+			connTimes.start = time.Now()
+			lasttime = time.Now()
+			fmt.Println("ConnectStart", network, addr, connTimes.start)
+		},
+		WroteRequest: func(info httptrace.WroteRequestInfo) {
+			if info.Err != nil {
+				fmt.Println("Failed to write the request", info.Err)
+			}
+			connTimes.endwrite = time.Now()
+			lasttime = time.Now()
+			fmt.Println("WroteRequest", connTimes.endwrite)
+		},
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	done++
+	fmt.Println(resp.Status)
+	OutputResults()
+}
