@@ -68,6 +68,9 @@ func main() {
 		return
 	}
 	defer resp.Body.Close()
+	connTimes.beginread = time.Now()
+	lasttime = time.Now()
+	// TODO: read headers and body
 	done++
 	fmt.Println(resp.Status)
 	OutputResults()
