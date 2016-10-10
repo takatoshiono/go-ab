@@ -44,7 +44,12 @@ func main() {
 		ConnectStart: func(network, addr string) {
 			connTimes.start = time.Now()
 			lasttime = time.Now()
-			fmt.Println("ConnectStart", network, addr, connTimes.start)
+			fmt.Println("ConnectStart:", connTimes.start, network, addr)
+		},
+		GotConn: func(info httptrace.GotConnInfo) {
+			connTimes.connect = time.Now()
+			lasttime = time.Now()
+			fmt.Printf("GotConn: %v %+v\n", connTimes.connect, info)
 		},
 		WroteRequest: func(info httptrace.WroteRequestInfo) {
 			if info.Err != nil {
@@ -52,7 +57,7 @@ func main() {
 			}
 			connTimes.endwrite = time.Now()
 			lasttime = time.Now()
-			fmt.Println("WroteRequest", connTimes.endwrite)
+			fmt.Println("WroteRequest:", connTimes.endwrite)
 		},
 	}
 
