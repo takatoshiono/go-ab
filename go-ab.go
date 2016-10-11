@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+var url string
 var start time.Time
 var lasttime time.Time
 var done int
@@ -26,15 +27,7 @@ func OutputResults() {
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done)/timeTaken.Seconds())
 }
 
-func main() {
-	flag.Parse()
-
-	url := flag.Arg(0)
-	if url == "" {
-		fmt.Println("Usage: go-ab [http[s]://]hostname[:port]/path")
-		return
-	}
-
+func Test() {
 	start = time.Now()
 	lasttime = time.Now()
 
@@ -81,4 +74,16 @@ func main() {
 	lasttime = time.Now()
 	fmt.Println(resp.Status)
 	OutputResults()
+}
+
+func main() {
+	flag.Parse()
+
+	url = flag.Arg(0)
+	if url == "" {
+		fmt.Println("Usage: go-ab [http[s]://]hostname[:port]/path")
+		return
+	}
+
+	Test()
 }
