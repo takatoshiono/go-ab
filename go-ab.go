@@ -77,6 +77,8 @@ func main() {
 	lasttime = time.Now()
 	// TODO: read headers and body
 	done++
+	connTimes.done = time.Now()
+	lasttime = time.Now()
 	fmt.Println(resp.Status)
 	OutputResults()
 }
