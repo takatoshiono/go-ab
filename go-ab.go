@@ -32,12 +32,12 @@ func Request(c chan string) {
 			ConnectStart: func(network, addr string) {
 				connTimes.start = time.Now()
 				lasttime = time.Now()
-				fmt.Println("ConnectStart:", connTimes.start, network, addr)
+				//fmt.Println("ConnectStart:", connTimes.start, network, addr)
 			},
 			GotConn: func(info httptrace.GotConnInfo) {
 				connTimes.connect = time.Now()
 				lasttime = time.Now()
-				fmt.Printf("GotConn: %v %+v\n", connTimes.connect, info)
+				//fmt.Printf("GotConn: %v %+v\n", connTimes.connect, info)
 			},
 			WroteRequest: func(info httptrace.WroteRequestInfo) {
 				if info.Err != nil {
@@ -45,7 +45,7 @@ func Request(c chan string) {
 				}
 				connTimes.endwrite = time.Now()
 				lasttime = time.Now()
-				fmt.Println("WroteRequest:", connTimes.endwrite)
+				//fmt.Println("WroteRequest:", connTimes.endwrite)
 			},
 		}
 
@@ -67,7 +67,7 @@ func Request(c chan string) {
 		done++
 		connTimes.done = time.Now()
 		lasttime = time.Now()
-		fmt.Println(resp.Status)
+		//fmt.Println(resp.Status)
 	}
 }
 
@@ -78,6 +78,8 @@ func OutputResults() {
 }
 
 func Test() {
+	fmt.Printf("Benchmarking...")
+
 	start = time.Now()
 	lasttime = time.Now()
 
@@ -96,7 +98,8 @@ func Test() {
 		}
 	}
 
-	fmt.Printf("Finished %d requests\n", done)
+	//fmt.Printf("Finished %d requests\n", done)
+	fmt.Printf("..done\n")
 	OutputResults()
 }
 
