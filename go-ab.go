@@ -9,6 +9,7 @@ import (
 )
 
 var requests *int
+var concurrency *int
 var url string
 
 var start time.Time
@@ -80,11 +81,16 @@ func Test() {
 	start = time.Now()
 	lasttime = time.Now()
 
-	ch := make(chan string)
-	go Request(ch)
+	ch := make([]chan string, *concurrency)
+	for i := 0; i < *concurrency; i++ {
+		ch[i] = make(chan string)
+		go Request(ch[i])
+	}
 
 	for {
-		ch <- url
+		for i := 0; i < *concurrency; i++ {
+			ch[i] <- url
+		}
 		if done >= *requests {
 			break
 		}
@@ -95,7 +101,8 @@ func Test() {
 }
 
 func main() {
-	requests = flag.Int("n", 1, "Number of requests")
+	requests = flag.Int("n", 1, "Number of requests to perform")
+	concurrency = flag.Int("c", 1, "Number of multiple requests to make at a time")
 	flag.Parse()
 
 	url = flag.Arg(0)
