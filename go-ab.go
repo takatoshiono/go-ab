@@ -23,17 +23,8 @@ type ConnectionTimes struct {
 	done      time.Time // Connection closed
 }
 
-func OutputResults() {
-	timeTaken := lasttime.Sub(start)
-	fmt.Printf("Time taken for tests:   %.3f seconds\n", timeTaken.Seconds())
-	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done)/timeTaken.Seconds())
-}
-
-func Test() {
-	start = time.Now()
-	lasttime = time.Now()
-
-	for {
+func Request(c chan string) {
+	for url := range c {
 		connTimes := &ConnectionTimes{}
 
 		trace := &httptrace.ClientTrace{
@@ -76,7 +67,24 @@ func Test() {
 		connTimes.done = time.Now()
 		lasttime = time.Now()
 		fmt.Println(resp.Status)
+	}
+}
 
+func OutputResults() {
+	timeTaken := lasttime.Sub(start)
+	fmt.Printf("Time taken for tests:   %.3f seconds\n", timeTaken.Seconds())
+	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done)/timeTaken.Seconds())
+}
+
+func Test() {
+	start = time.Now()
+	lasttime = time.Now()
+
+	ch := make(chan string)
+	go Request(ch)
+
+	for {
+		ch <- url
 		if done >= *requests {
 			break
 		}
