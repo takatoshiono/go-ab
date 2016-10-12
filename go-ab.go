@@ -114,5 +114,10 @@ func main() {
 		return
 	}
 
+	if *requests < *concurrency {
+		// TODO: show usage
+		return
+	}
+
 	Test()
 }
