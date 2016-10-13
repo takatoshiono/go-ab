@@ -24,8 +24,20 @@ func (d *Done) Increment() {
 	d.count++
 }
 
+type Started struct {
+	count int
+	mux   sync.Mutex
+}
+
+func (s *Started) Increment() {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	s.count++
+}
+
 var start time.Time
 var lasttime time.Time
+var started = &Started{}
 var done = &Done{}
 
 type ConnectionTimes struct {
@@ -38,6 +50,11 @@ type ConnectionTimes struct {
 
 func Request(c chan string) {
 	for url := range c {
+		if started.count >= *requests {
+			continue
+		}
+		started.Increment()
+
 		connTimes := &ConnectionTimes{}
 
 		trace := &httptrace.ClientTrace{
@@ -66,6 +83,7 @@ func Request(c chan string) {
 			fmt.Println(err)
 			return
 		}
+
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 		resp, err := http.DefaultTransport.RoundTrip(req)
 		if err != nil {
