@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptrace"
+	"sync"
 	"time"
 )
 
@@ -12,9 +13,20 @@ var requests *int
 var concurrency *int
 var url string
 
+type Done struct {
+	count int
+	mux   sync.Mutex
+}
+
+func (d *Done) Increment() {
+	d.mux.Lock()
+	defer d.mux.Unlock()
+	d.count++
+}
+
 var start time.Time
 var lasttime time.Time
-var done int
+var done = &Done{}
 
 type ConnectionTimes struct {
 	start     time.Time // Start of connection
@@ -64,7 +76,7 @@ func Request(c chan string) {
 		connTimes.beginread = time.Now()
 		lasttime = time.Now()
 		// TODO: read headers and body
-		done++
+		done.Increment()
 		connTimes.done = time.Now()
 		lasttime = time.Now()
 		//fmt.Println(resp.Status)
@@ -74,7 +86,7 @@ func Request(c chan string) {
 func OutputResults() {
 	timeTaken := lasttime.Sub(start)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", timeTaken.Seconds())
-	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done)/timeTaken.Seconds())
+	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done.count)/timeTaken.Seconds())
 }
 
 func Test() {
@@ -93,7 +105,7 @@ func Test() {
 		for i := 0; i < *concurrency; i++ {
 			ch[i] <- url
 		}
-		if done >= *requests {
+		if done.count >= *requests {
 			break
 		}
 	}
