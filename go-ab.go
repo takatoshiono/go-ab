@@ -86,6 +86,7 @@ func Request(c chan string) {
 func OutputResults() {
 	timeTaken := lasttime.Sub(start)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", timeTaken.Seconds())
+	fmt.Printf("Complete requests:      %d\n", done.count)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done.count)/timeTaken.Seconds())
 }
 
