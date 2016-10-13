@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptrace"
 	"sync"
@@ -93,11 +94,13 @@ func Request(c chan string) {
 		defer resp.Body.Close()
 		connTimes.beginread = time.Now()
 		lasttime = time.Now()
+
 		// TODO: read headers and body
+		log.Printf("Response code = %s\n", resp.Status)
+
 		done.Increment()
 		connTimes.done = time.Now()
 		lasttime = time.Now()
-		//fmt.Println(resp.Status)
 	}
 }
 
@@ -149,6 +152,9 @@ func main() {
 		// TODO: show usage
 		return
 	}
+
+	log.SetPrefix("LOG: ")
+	log.SetFlags(0)
 
 	Test()
 }
