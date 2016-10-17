@@ -40,6 +40,14 @@ func (b *Benchmark) IncrDone() {
 	b.doneCount++
 }
 
+func (b *Benchmark) TimeTaken() float64 {
+	return b.lasttime.Sub(b.start).Seconds()
+}
+
+func (b *Benchmark) RequestPerSecond() float64 {
+	return float64(b.doneCount) / b.TimeTaken()
+}
+
 var b = &Benchmark{}
 
 type ConnectionTimes struct {
@@ -106,10 +114,9 @@ func Request(c chan string) {
 }
 
 func OutputResults() {
-	timeTaken := b.lasttime.Sub(b.start)
-	fmt.Printf("Time taken for tests:   %.3f seconds\n", timeTaken.Seconds())
+	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
-	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(b.doneCount)/timeTaken.Seconds())
+	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 }
 
 func Test() {
