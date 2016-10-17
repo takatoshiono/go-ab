@@ -14,32 +14,33 @@ var requests *int
 var concurrency *int
 var url string
 
-type Done struct {
-	count int
-	mux   sync.Mutex
+type Benchmark struct {
+	start        time.Time
+	lasttime     time.Time
+	startedCount int
+	doneCount    int
+	mux          sync.Mutex
 }
 
-func (d *Done) Increment() {
-	d.mux.Lock()
-	defer d.mux.Unlock()
-	d.count++
+func (b *Benchmark) SetLasttime(t time.Time) {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.lasttime = t
 }
 
-type Started struct {
-	count int
-	mux   sync.Mutex
+func (b *Benchmark) IncrStarted() {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.startedCount++
 }
 
-func (s *Started) Increment() {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.count++
+func (b *Benchmark) IncrDone() {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.doneCount++
 }
 
-var start time.Time
-var lasttime time.Time
-var started = &Started{}
-var done = &Done{}
+var b = &Benchmark{}
 
 type ConnectionTimes struct {
 	start     time.Time // Start of connection
@@ -51,22 +52,22 @@ type ConnectionTimes struct {
 
 func Request(c chan string) {
 	for url := range c {
-		if started.count >= *requests {
+		if b.startedCount >= *requests {
 			continue
 		}
-		started.Increment()
+		b.IncrStarted()
 
 		connTimes := &ConnectionTimes{}
 
 		trace := &httptrace.ClientTrace{
 			ConnectStart: func(network, addr string) {
 				connTimes.start = time.Now()
-				lasttime = time.Now()
+				b.SetLasttime(time.Now())
 				//fmt.Println("ConnectStart:", connTimes.start, network, addr)
 			},
 			GotConn: func(info httptrace.GotConnInfo) {
 				connTimes.connect = time.Now()
-				lasttime = time.Now()
+				b.SetLasttime(time.Now())
 				//fmt.Printf("GotConn: %v %+v\n", connTimes.connect, info)
 			},
 			WroteRequest: func(info httptrace.WroteRequestInfo) {
@@ -74,7 +75,7 @@ func Request(c chan string) {
 					fmt.Println("Failed to write the request", info.Err)
 				}
 				connTimes.endwrite = time.Now()
-				lasttime = time.Now()
+				b.SetLasttime(time.Now())
 				//fmt.Println("WroteRequest:", connTimes.endwrite)
 			},
 		}
@@ -93,29 +94,29 @@ func Request(c chan string) {
 		}
 		defer resp.Body.Close()
 		connTimes.beginread = time.Now()
-		lasttime = time.Now()
+		b.SetLasttime(time.Now())
 
 		// TODO: read headers and body
 		log.Printf("Response code = %s\n", resp.Status)
 
-		done.Increment()
+		b.IncrDone()
 		connTimes.done = time.Now()
-		lasttime = time.Now()
+		b.SetLasttime(time.Now())
 	}
 }
 
 func OutputResults() {
-	timeTaken := lasttime.Sub(start)
+	timeTaken := b.lasttime.Sub(b.start)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", timeTaken.Seconds())
-	fmt.Printf("Complete requests:      %d\n", done.count)
-	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(done.count)/timeTaken.Seconds())
+	fmt.Printf("Complete requests:      %d\n", b.doneCount)
+	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", float64(b.doneCount)/timeTaken.Seconds())
 }
 
 func Test() {
 	fmt.Printf("Benchmarking...")
 
-	start = time.Now()
-	lasttime = time.Now()
+	b.start = time.Now()
+	b.lasttime = time.Now()
 
 	ch := make([]chan string, *concurrency)
 	for i := 0; i < *concurrency; i++ {
@@ -127,7 +128,7 @@ func Test() {
 		for i := 0; i < *concurrency; i++ {
 			ch[i] <- url
 		}
-		if done.count >= *requests {
+		if b.doneCount >= *requests {
 			break
 		}
 	}
