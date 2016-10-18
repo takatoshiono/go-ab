@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptrace"
+	u "net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -13,7 +16,7 @@ import (
 var verbosity *int
 var requests *int
 var concurrency *int
-var url string
+var url *u.URL
 
 var servername string
 
@@ -62,7 +65,7 @@ type ConnectionTimes struct {
 }
 
 func Request(c chan string) {
-	for url := range c {
+	for u := range c {
 		if b.startedCount >= *requests {
 			continue
 		}
@@ -91,7 +94,7 @@ func Request(c chan string) {
 			},
 		}
 
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", u, nil)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -118,14 +121,20 @@ func Request(c chan string) {
 	}
 }
 
-func OutputResults() {
+func OutputResults(url *u.URL) {
+	host := strings.Split(url.Host, ":")
+
+	fmt.Printf("\n\n")
 	fmt.Printf("Server Software:        %s\n", servername)
+	fmt.Printf("Server Hostname:        %s\n", host[0])
+	fmt.Printf("Server Port:            %s\n", host[1])
+	fmt.Printf("\n")
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 }
 
-func Test() {
+func Test(url *u.URL) {
 	fmt.Printf("Benchmarking...")
 
 	b.start = time.Now()
@@ -139,7 +148,7 @@ func Test() {
 
 	for {
 		for i := 0; i < *concurrency; i++ {
-			ch[i] <- url
+			ch[i] <- url.String()
 		}
 		if b.doneCount >= *requests {
 			break
@@ -148,7 +157,7 @@ func Test() {
 
 	//fmt.Printf("Finished %d requests\n", done)
 	fmt.Printf("..done\n")
-	OutputResults()
+	OutputResults(url)
 }
 
 func LogDebugf(format string, args ...interface{}) {
@@ -163,9 +172,16 @@ func main() {
 	concurrency = flag.Int("c", 1, "Number of multiple requests to make at a time")
 	flag.Parse()
 
-	url = flag.Arg(0)
-	if url == "" {
+	rawurl := flag.Arg(0)
+	if rawurl == "" {
 		fmt.Println("Usage: go-ab [http[s]://]hostname[:port]/path")
+		return
+	}
+
+	url, err := u.ParseRequestURI(rawurl)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: invalid URL\n", rawurl)
+		// TODO: show usage
 		return
 	}
 
@@ -177,5 +193,5 @@ func main() {
 	log.SetPrefix("LOG: ")
 	log.SetFlags(0)
 
-	Test()
+	Test(url)
 }
