@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptrace"
-	u "net/url"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -16,7 +16,7 @@ import (
 var verbosity *int
 var requests *int
 var concurrency *int
-var url *u.URL
+var targetUrl *url.URL
 
 var servername string
 
@@ -65,7 +65,7 @@ type ConnectionTimes struct {
 }
 
 func Request(c chan string) {
-	for url := range c {
+	for requestUrl := range c {
 		if b.startedCount >= *requests {
 			continue
 		}
@@ -94,7 +94,7 @@ func Request(c chan string) {
 			},
 		}
 
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", requestUrl, nil)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -121,8 +121,8 @@ func Request(c chan string) {
 	}
 }
 
-func OutputResults(url *u.URL) {
-	host := strings.Split(url.Host, ":")
+func OutputResults() {
+	host := strings.Split(targetUrl.Host, ":")
 
 	fmt.Printf("\n\n")
 	fmt.Printf("Server Software:        %s\n", servername)
@@ -134,7 +134,7 @@ func OutputResults(url *u.URL) {
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 }
 
-func Test(url *u.URL) {
+func Test() {
 	fmt.Printf("Benchmarking...")
 
 	b.start = time.Now()
@@ -148,7 +148,7 @@ func Test(url *u.URL) {
 
 	for {
 		for i := 0; i < *concurrency; i++ {
-			ch[i] <- url.String()
+			ch[i] <- targetUrl.String()
 		}
 		if b.doneCount >= *requests {
 			break
@@ -157,7 +157,7 @@ func Test(url *u.URL) {
 
 	//fmt.Printf("Finished %d requests\n", done)
 	fmt.Printf("..done\n")
-	OutputResults(url)
+	OutputResults()
 }
 
 func LogDebugf(format string, args ...interface{}) {
@@ -178,7 +178,8 @@ func main() {
 		return
 	}
 
-	url, err := u.ParseRequestURI(rawurl)
+	var err error
+	targetUrl, err = url.ParseRequestURI(rawurl)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: invalid URL\n", rawurl)
 		// TODO: show usage
@@ -193,5 +194,5 @@ func main() {
 	log.SetPrefix("LOG: ")
 	log.SetFlags(0)
 
-	Test(url)
+	Test()
 }
