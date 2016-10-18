@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+var verbosity *int
 var requests *int
 var concurrency *int
 var url string
@@ -105,7 +106,7 @@ func Request(c chan string) {
 		b.SetLasttime(time.Now())
 
 		// TODO: read headers and body
-		log.Printf("Response code = %s\n", resp.Status)
+		LogDebugf("Response code = %s\n", resp.Status)
 
 		b.IncrDone()
 		connTimes.done = time.Now()
@@ -145,7 +146,14 @@ func Test() {
 	OutputResults()
 }
 
+func LogDebugf(format string, args ...interface{}) {
+	if *verbosity > 0 {
+		log.Printf(format, args)
+	}
+}
+
 func main() {
+	verbosity = flag.Int("v", 0, "How much troubleshooting info to print")
 	requests = flag.Int("n", 1, "Number of requests to perform")
 	concurrency = flag.Int("c", 1, "Number of multiple requests to make at a time")
 	flag.Parse()
