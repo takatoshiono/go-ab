@@ -65,7 +65,7 @@ type ConnectionTimes struct {
 }
 
 func Request(c chan string) {
-	for u := range c {
+	for url := range c {
 		if b.startedCount >= *requests {
 			continue
 		}
@@ -94,7 +94,7 @@ func Request(c chan string) {
 			},
 		}
 
-		req, err := http.NewRequest("GET", u, nil)
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			fmt.Println(err)
 			return
