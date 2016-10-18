@@ -15,6 +15,8 @@ var requests *int
 var concurrency *int
 var url string
 
+var servername string
+
 type Benchmark struct {
 	start        time.Time
 	lasttime     time.Time
@@ -108,6 +110,8 @@ func Request(c chan string) {
 		// TODO: read headers and body
 		LogDebugf("Response code = %s\n", resp.Status)
 
+		servername = resp.Header.Get("Server")
+
 		b.IncrDone()
 		connTimes.done = time.Now()
 		b.SetLasttime(time.Now())
@@ -115,6 +119,7 @@ func Request(c chan string) {
 }
 
 func OutputResults() {
+	fmt.Printf("Server Software:        %s\n", servername)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
