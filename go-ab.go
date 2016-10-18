@@ -17,6 +17,8 @@ var verbosity *int
 var requests *int
 var concurrency *int
 var targetUrl *url.URL
+var host string
+var port string
 
 var servername string
 
@@ -122,12 +124,10 @@ func Request(c chan string) {
 }
 
 func OutputResults() {
-	host := strings.Split(targetUrl.Host, ":")
-
 	fmt.Printf("\n\n")
 	fmt.Printf("Server Software:        %s\n", servername)
-	fmt.Printf("Server Hostname:        %s\n", host[0])
-	fmt.Printf("Server Port:            %s\n", host[1])
+	fmt.Printf("Server Hostname:        %s\n", host)
+	fmt.Printf("Server Port:            %s\n", port)
 	fmt.Printf("\n")
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
@@ -166,6 +166,23 @@ func LogDebugf(format string, args ...interface{}) {
 	}
 }
 
+func ParseUrl(rawurl string) error {
+	u, err := url.ParseRequestURI(rawurl)
+	if err != nil {
+		return err
+	}
+
+	h := strings.Split(u.Host, ":")
+	host = h[0]
+	if len(h) > 1 {
+		port = h[1]
+	}
+
+	targetUrl = u
+
+	return nil
+}
+
 func main() {
 	verbosity = flag.Int("v", 0, "How much troubleshooting info to print")
 	requests = flag.Int("n", 1, "Number of requests to perform")
@@ -178,8 +195,7 @@ func main() {
 		return
 	}
 
-	var err error
-	targetUrl, err = url.ParseRequestURI(rawurl)
+	err := ParseUrl(rawurl)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: invalid URL\n", rawurl)
 		// TODO: show usage
