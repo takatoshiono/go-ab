@@ -19,6 +19,7 @@ var concurrency *int
 var targetUrl *url.URL
 var host string
 var port string
+var path string
 
 var servername string
 
@@ -129,6 +130,7 @@ func OutputResults() {
 	fmt.Printf("Server Hostname:        %s\n", host)
 	fmt.Printf("Server Port:            %s\n", port)
 	fmt.Printf("\n")
+	fmt.Printf("Document Path:          %s\n", path)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
@@ -177,6 +179,8 @@ func ParseUrl(rawurl string) error {
 	if len(h) > 1 {
 		port = h[1]
 	}
+
+	path = u.Path
 
 	targetUrl = u
 
