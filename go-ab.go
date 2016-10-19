@@ -147,7 +147,8 @@ func OutputResults() {
 }
 
 func Test() {
-	fmt.Printf("Benchmarking...")
+	fmt.Printf("Benchmarking %s ", host)
+	fmt.Printf("(be patient)%s", "...")
 
 	b.start = time.Now()
 	b.lasttime = time.Now()
