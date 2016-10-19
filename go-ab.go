@@ -21,7 +21,7 @@ var concurrency *int
 var targetUrl *url.URL
 
 var servername string
-var host string
+var hostname string
 var port int
 var path string
 var doclen int
@@ -136,7 +136,7 @@ func Request(c chan string) {
 func OutputResults() {
 	fmt.Printf("\n\n")
 	fmt.Printf("Server Software:        %s\n", servername)
-	fmt.Printf("Server Hostname:        %s\n", host)
+	fmt.Printf("Server Hostname:        %s\n", hostname)
 	fmt.Printf("Server Port:            %d\n", port)
 	fmt.Printf("\n")
 	fmt.Printf("Document Path:          %s\n", path)
@@ -147,7 +147,7 @@ func OutputResults() {
 }
 
 func Test() {
-	fmt.Printf("Benchmarking %s ", host)
+	fmt.Printf("Benchmarking %s ", hostname)
 	fmt.Printf("(be patient)%s", "...")
 
 	b.start = time.Now()
@@ -186,7 +186,7 @@ func ParseUrl(rawurl string) error {
 	}
 
 	h := strings.Split(u.Host, ":")
-	host = h[0]
+	hostname = h[0]
 	if len(h) > 1 {
 		port, err = strconv.Atoi(h[1])
 		if err != nil {
