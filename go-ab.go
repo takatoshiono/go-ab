@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptrace"
@@ -17,11 +18,12 @@ var verbosity *int
 var requests *int
 var concurrency *int
 var targetUrl *url.URL
+
+var servername string
 var host string
 var port string
 var path string
-
-var servername string
+var doclen int
 
 type Benchmark struct {
 	start        time.Time
@@ -117,6 +119,12 @@ func Request(c chan string) {
 		LogDebugf("Response code = %s\n", resp.Status)
 
 		servername = resp.Header.Get("Server")
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		doclen = len(body)
 
 		b.IncrDone()
 		connTimes.done = time.Now()
@@ -131,6 +139,7 @@ func OutputResults() {
 	fmt.Printf("Server Port:            %s\n", port)
 	fmt.Printf("\n")
 	fmt.Printf("Document Path:          %s\n", path)
+	fmt.Printf("Document Length:        %d bytes\n", doclen)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
