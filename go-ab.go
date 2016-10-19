@@ -141,6 +141,8 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Document Path:          %s\n", path)
 	fmt.Printf("Document Length:        %d bytes\n", doclen)
+	fmt.Printf("\n")
+	fmt.Printf("Concurrency Level:      %d\n", *concurrency)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
