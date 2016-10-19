@@ -9,6 +9,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ var targetUrl *url.URL
 
 var servername string
 var host string
-var port string
+var port int
 var path string
 var doclen int
 
@@ -136,7 +137,7 @@ func OutputResults() {
 	fmt.Printf("\n\n")
 	fmt.Printf("Server Software:        %s\n", servername)
 	fmt.Printf("Server Hostname:        %s\n", host)
-	fmt.Printf("Server Port:            %s\n", port)
+	fmt.Printf("Server Port:            %d\n", port)
 	fmt.Printf("\n")
 	fmt.Printf("Document Path:          %s\n", path)
 	fmt.Printf("Document Length:        %d bytes\n", doclen)
@@ -186,7 +187,16 @@ func ParseUrl(rawurl string) error {
 	h := strings.Split(u.Host, ":")
 	host = h[0]
 	if len(h) > 1 {
-		port = h[1]
+		port, err = strconv.Atoi(h[1])
+		if err != nil {
+			return err
+		}
+	} else {
+		if u.Scheme == "https" {
+			port = 443
+		} else {
+			port = 80
+		}
 	}
 
 	path = u.Path
