@@ -84,70 +84,75 @@ type ConnectionTimes struct {
 	done      time.Time // Connection closed
 }
 
+func GetUrl(requestUrl string) {
+	if b.startedCount >= *requests {
+		return
+	}
+	b.IncrStarted()
+	defer b.IncrDone()
+
+	connTimes := &ConnectionTimes{}
+
+	trace := &httptrace.ClientTrace{
+		ConnectStart: func(network, addr string) {
+			connTimes.start = time.Now()
+			b.SetLasttime(time.Now())
+			//fmt.Println("ConnectStart:", connTimes.start, network, addr)
+		},
+		GotConn: func(info httptrace.GotConnInfo) {
+			connTimes.connect = time.Now()
+			b.SetLasttime(time.Now())
+			//fmt.Printf("GotConn: %v %+v\n", connTimes.connect, info)
+		},
+		WroteRequest: func(info httptrace.WroteRequestInfo) {
+			if info.Err != nil {
+				fmt.Println("Failed to write the request", info.Err)
+			}
+			connTimes.endwrite = time.Now()
+			b.SetLasttime(time.Now())
+			//fmt.Println("WroteRequest:", connTimes.endwrite)
+		},
+	}
+
+	req, err := http.NewRequest("GET", requestUrl, nil)
+	if err != nil {
+		b.IncrBad()
+		fmt.Println(err)
+		return
+	}
+
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		b.IncrBad()
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	connTimes.beginread = time.Now()
+	b.SetLasttime(time.Now())
+
+	// TODO: read headers and body
+	LogDebugf("Response code = %s\n", resp.Status)
+
+	servername = resp.Header.Get("Server")
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		b.IncrBad()
+		fmt.Println(err)
+		return
+	}
+	doclen = len(body)
+
+	b.IncrGood()
+
+	connTimes.done = time.Now()
+	b.SetLasttime(time.Now())
+}
+
 func Request(c chan string) {
 	for requestUrl := range c {
-		if b.startedCount >= *requests {
-			continue
-		}
-		b.IncrStarted()
-
-		connTimes := &ConnectionTimes{}
-
-		trace := &httptrace.ClientTrace{
-			ConnectStart: func(network, addr string) {
-				connTimes.start = time.Now()
-				b.SetLasttime(time.Now())
-				//fmt.Println("ConnectStart:", connTimes.start, network, addr)
-			},
-			GotConn: func(info httptrace.GotConnInfo) {
-				connTimes.connect = time.Now()
-				b.SetLasttime(time.Now())
-				//fmt.Printf("GotConn: %v %+v\n", connTimes.connect, info)
-			},
-			WroteRequest: func(info httptrace.WroteRequestInfo) {
-				if info.Err != nil {
-					fmt.Println("Failed to write the request", info.Err)
-				}
-				connTimes.endwrite = time.Now()
-				b.SetLasttime(time.Now())
-				//fmt.Println("WroteRequest:", connTimes.endwrite)
-			},
-		}
-
-		req, err := http.NewRequest("GET", requestUrl, nil)
-		if err != nil {
-			b.IncrBad()
-			fmt.Println(err)
-			return
-		}
-
-		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
-		resp, err := http.DefaultTransport.RoundTrip(req)
-		if err != nil {
-			b.IncrBad()
-			fmt.Println(err)
-			return
-		}
-		defer resp.Body.Close()
-		connTimes.beginread = time.Now()
-		b.SetLasttime(time.Now())
-
-		// TODO: read headers and body
-		LogDebugf("Response code = %s\n", resp.Status)
-
-		servername = resp.Header.Get("Server")
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			b.IncrBad()
-			fmt.Println(err)
-			return
-		}
-		doclen = len(body)
-
-		b.IncrGood()
-		b.IncrDone()
-		connTimes.done = time.Now()
-		b.SetLasttime(time.Now())
+		GetUrl(requestUrl)
 	}
 }
 
