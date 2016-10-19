@@ -31,6 +31,8 @@ type Benchmark struct {
 	lasttime     time.Time
 	startedCount int
 	doneCount    int
+	goodCount    int
+	badCount     int
 	mux          sync.Mutex
 }
 
@@ -50,6 +52,18 @@ func (b *Benchmark) IncrDone() {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 	b.doneCount++
+}
+
+func (b *Benchmark) IncrGood() {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.goodCount++
+}
+
+func (b *Benchmark) IncrBad() {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.badCount++
 }
 
 func (b *Benchmark) TimeTaken() float64 {
@@ -102,6 +116,7 @@ func Request(c chan string) {
 
 		req, err := http.NewRequest("GET", requestUrl, nil)
 		if err != nil {
+			b.IncrBad()
 			fmt.Println(err)
 			return
 		}
@@ -109,6 +124,7 @@ func Request(c chan string) {
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 		resp, err := http.DefaultTransport.RoundTrip(req)
 		if err != nil {
+			b.IncrBad()
 			fmt.Println(err)
 			return
 		}
@@ -122,11 +138,13 @@ func Request(c chan string) {
 		servername = resp.Header.Get("Server")
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
+			b.IncrBad()
 			fmt.Println(err)
 			return
 		}
 		doclen = len(body)
 
+		b.IncrGood()
 		b.IncrDone()
 		connTimes.done = time.Now()
 		b.SetLasttime(time.Now())
@@ -145,6 +163,7 @@ func OutputResults() {
 	fmt.Printf("Concurrency Level:      %d\n", *concurrency)
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
+	fmt.Printf("Failed requests:        %d\n", b.badCount)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 }
 
