@@ -26,7 +26,6 @@ var hostname string
 var port int
 var path string
 var doclen int
-var totalread int
 
 type Benchmark struct {
 	start         time.Time
@@ -36,6 +35,7 @@ type Benchmark struct {
 	goodCount     int
 	badCount      int
 	noSucessCount int
+	totalRead     int
 	mux           sync.Mutex
 }
 
@@ -73,6 +73,12 @@ func (b *Benchmark) IncrNoSuccessCount() {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 	b.noSucessCount++
+}
+
+func (b *Benchmark) AddTotalRead(size int) {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.totalRead += size
 }
 
 func (b *Benchmark) TimeTaken() float64 {
@@ -148,13 +154,12 @@ func GetUrl(requestUrl string) {
 		b.IncrNoSuccessCount()
 	}
 
-	dump, err := httputil.DumpResponse(resp, false)
+	headerDump, err := httputil.DumpResponse(resp, false)
 	if err != nil {
 		b.IncrBad()
 		fmt.Println(err)
 		return
 	}
-	totalread += len(dump)
 
 	servername = resp.Header.Get("Server")
 	body, err := ioutil.ReadAll(resp.Body)
@@ -164,7 +169,8 @@ func GetUrl(requestUrl string) {
 		return
 	}
 	doclen = len(body)
-	totalread += doclen
+
+	b.AddTotalRead(len(headerDump) + len(body))
 
 	b.IncrGood()
 
@@ -194,7 +200,7 @@ func OutputResults() {
 	if b.noSucessCount > 0 {
 		fmt.Printf("Non-2xx responses:      %d\n", b.noSucessCount)
 	}
-	fmt.Printf("Total transferred:      %d bytes\n", totalread)
+	fmt.Printf("Total transferred:      %d bytes\n", b.totalRead)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 }
 
