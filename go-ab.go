@@ -29,13 +29,14 @@ var doclen int
 var totalread int
 
 type Benchmark struct {
-	start        time.Time
-	lasttime     time.Time
-	startedCount int
-	doneCount    int
-	goodCount    int
-	badCount     int
-	mux          sync.Mutex
+	start         time.Time
+	lasttime      time.Time
+	startedCount  int
+	doneCount     int
+	goodCount     int
+	badCount      int
+	noSucessCount int
+	mux           sync.Mutex
 }
 
 func (b *Benchmark) SetLasttime(t time.Time) {
@@ -66,6 +67,12 @@ func (b *Benchmark) IncrBad() {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 	b.badCount++
+}
+
+func (b *Benchmark) IncrNoSuccessCount() {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.noSucessCount++
 }
 
 func (b *Benchmark) TimeTaken() float64 {
@@ -137,6 +144,10 @@ func GetUrl(requestUrl string) {
 
 	LogDebugf("Response code = %s\n", resp.Status)
 
+	if !strings.HasPrefix(resp.Status, "2") {
+		b.IncrNoSuccessCount()
+	}
+
 	dump, err := httputil.DumpResponse(resp, false)
 	if err != nil {
 		b.IncrBad()
@@ -180,6 +191,9 @@ func OutputResults() {
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
 	fmt.Printf("Failed requests:        %d\n", b.badCount)
+	if b.noSucessCount > 0 {
+		fmt.Printf("Non-2xx responses:      %d\n", b.noSucessCount)
+	}
 	fmt.Printf("Total transferred:      %d bytes\n", totalread)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 }
