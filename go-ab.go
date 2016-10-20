@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptrace"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"strconv"
@@ -25,6 +26,7 @@ var hostname string
 var port int
 var path string
 var doclen int
+var totalread int
 
 type Benchmark struct {
 	start        time.Time
@@ -129,11 +131,19 @@ func GetUrl(requestUrl string) {
 		return
 	}
 	defer resp.Body.Close()
+
 	connTimes.beginread = time.Now()
 	b.SetLasttime(time.Now())
 
-	// TODO: read headers and body
 	LogDebugf("Response code = %s\n", resp.Status)
+
+	dump, err := httputil.DumpResponse(resp, false)
+	if err != nil {
+		b.IncrBad()
+		fmt.Println(err)
+		return
+	}
+	totalread += len(dump)
 
 	servername = resp.Header.Get("Server")
 	body, err := ioutil.ReadAll(resp.Body)
@@ -143,6 +153,7 @@ func GetUrl(requestUrl string) {
 		return
 	}
 	doclen = len(body)
+	totalread += doclen
 
 	b.IncrGood()
 
@@ -169,6 +180,7 @@ func OutputResults() {
 	fmt.Printf("Time taken for tests:   %.3f seconds\n", b.TimeTaken())
 	fmt.Printf("Complete requests:      %d\n", b.doneCount)
 	fmt.Printf("Failed requests:        %d\n", b.badCount)
+	fmt.Printf("Total transferred:      %d bytes\n", totalread)
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 }
 
