@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
@@ -99,7 +100,7 @@ func (b *Benchmark) TransferRate() float64 {
 
 var b = &Benchmark{}
 
-type ConnectionTimes struct {
+type ConnectionTime struct {
 	start     time.Time // Start of connection
 	connect   time.Time // Connected start writing
 	endwrite  time.Time // Request written
@@ -107,33 +108,64 @@ type ConnectionTimes struct {
 	done      time.Time // Connection closed
 }
 
-func GetUrl(requestUrl string) {
+func (c *ConnectionTime) WaitSecond() float64 {
+	return c.beginread.Sub(c.endwrite).Seconds()
+}
+
+func (c *ConnectionTime) TimeToConnect() float64 {
+	return c.connect.Sub(c.start).Seconds()
+}
+
+func (c *ConnectionTime) TotalSecond() float64 {
+	return c.done.Sub(c.start).Seconds()
+}
+
+type Stat struct {
+	starttime time.Time // start time of connection
+	waittime  float64   // between request and reading response
+	ctime     float64   // time to connect
+	time      float64   // time for connection
+}
+
+type Stats []*Stat
+
+var stats Stats
+
+func (ss Stats) MinCon() int {
+	var min = math.MaxFloat64
+	for _, s := range ss {
+		min = math.Min(min, s.ctime)
+	}
+	return int(min * 1000)
+}
+
+func GetUrl(requestUrl string) *ConnectionTime {
 	if b.startedCount >= *requests {
-		return
+		return nil
 	}
 	b.IncrStarted()
 	defer b.IncrDone()
 
-	connTimes := &ConnectionTimes{}
+	c := &ConnectionTime{}
 
 	trace := &httptrace.ClientTrace{
 		ConnectStart: func(network, addr string) {
-			connTimes.start = time.Now()
+			c.start = time.Now()
 			b.SetLasttime(time.Now())
-			//fmt.Println("ConnectStart:", connTimes.start, network, addr)
+			//fmt.Println("ConnectStart:", c.start, network, addr)
 		},
 		GotConn: func(info httptrace.GotConnInfo) {
-			connTimes.connect = time.Now()
+			c.connect = time.Now()
 			b.SetLasttime(time.Now())
-			//fmt.Printf("GotConn: %v %+v\n", connTimes.connect, info)
+			//fmt.Printf("GotConn: %v %+v\n", c.connect, info)
 		},
 		WroteRequest: func(info httptrace.WroteRequestInfo) {
 			if info.Err != nil {
 				fmt.Println("Failed to write the request", info.Err)
 			}
-			connTimes.endwrite = time.Now()
+			c.endwrite = time.Now()
 			b.SetLasttime(time.Now())
-			//fmt.Println("WroteRequest:", connTimes.endwrite)
+			//fmt.Println("WroteRequest:", c.endwrite)
 		},
 	}
 
@@ -141,7 +173,7 @@ func GetUrl(requestUrl string) {
 	if err != nil {
 		b.IncrBad()
 		fmt.Println(err)
-		return
+		return nil
 	}
 
 	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
@@ -149,11 +181,11 @@ func GetUrl(requestUrl string) {
 	if err != nil {
 		b.IncrBad()
 		fmt.Println(err)
-		return
+		return nil
 	}
 	defer resp.Body.Close()
 
-	connTimes.beginread = time.Now()
+	c.beginread = time.Now()
 	b.SetLasttime(time.Now())
 
 	LogDebugf("Response code = %s\n", resp.Status)
@@ -166,7 +198,7 @@ func GetUrl(requestUrl string) {
 	if err != nil {
 		b.IncrBad()
 		fmt.Println(err)
-		return
+		return nil
 	}
 
 	servername = resp.Header.Get("Server")
@@ -174,7 +206,7 @@ func GetUrl(requestUrl string) {
 	if err != nil {
 		b.IncrBad()
 		fmt.Println(err)
-		return
+		return nil
 	}
 	doclen = len(body)
 
@@ -182,13 +214,28 @@ func GetUrl(requestUrl string) {
 
 	b.IncrGood()
 
-	connTimes.done = time.Now()
+	c.done = time.Now()
 	b.SetLasttime(time.Now())
+
+	return c
 }
 
-func Request(c chan string) {
+func Request(c chan string, r chan *ConnectionTime) {
 	for requestUrl := range c {
-		GetUrl(requestUrl)
+		r <- GetUrl(requestUrl)
+	}
+}
+
+func SaveStats(r chan *ConnectionTime) {
+	for c := range r {
+		if c != nil {
+			s := &Stat{
+				c.start,
+				c.WaitSecond(),
+				c.TimeToConnect(),
+				c.TotalSecond()}
+			stats = append(stats, s)
+		}
 	}
 }
 
@@ -213,6 +260,10 @@ func OutputResults() {
 	fmt.Printf("Time per request:       %.3f [ms] (mean)\n", float64(*concurrency)*b.TimePerRequest())
 	fmt.Printf("Time per request:       %.3f [ms] (mean, across all concurrent requests)\n", b.TimePerRequest())
 	fmt.Printf("Transfer rate:          %.2f [Kbytes/sec] received\n", b.TransferRate())
+	fmt.Printf("\n")
+	fmt.Printf("Connection Times (ms)\n")
+	fmt.Printf("              min  mean[+/-sd] median   max\n")
+	fmt.Printf("Connect:      %d\n", stats.MinCon())
 }
 
 func Test() {
@@ -222,10 +273,13 @@ func Test() {
 	b.start = time.Now()
 	b.lasttime = time.Now()
 
+	r := make(chan *ConnectionTime)
+	go SaveStats(r)
+
 	ch := make([]chan string, *concurrency)
 	for i := 0; i < *concurrency; i++ {
 		ch[i] = make(chan string)
-		go Request(ch[i])
+		go Request(ch[i], r)
 	}
 
 	for {
@@ -302,6 +356,8 @@ func main() {
 
 	log.SetPrefix("LOG: ")
 	log.SetFlags(0)
+
+	stats = make(Stats, 0, *concurrency)
 
 	Test()
 }
