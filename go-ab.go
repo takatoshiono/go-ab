@@ -93,6 +93,10 @@ func (b *Benchmark) TimePerRequest() float64 {
 	return b.TimeTaken() * 1000 / float64(b.doneCount)
 }
 
+func (b *Benchmark) TransferRate() float64 {
+	return float64(b.totalRead) / 1024 / b.TimeTaken()
+}
+
 var b = &Benchmark{}
 
 type ConnectionTimes struct {
@@ -208,6 +212,7 @@ func OutputResults() {
 	fmt.Printf("Requests per second:    %.2f [#/sec] (mean)\n", b.RequestPerSecond())
 	fmt.Printf("Time per request:       %.3f [ms] (mean)\n", float64(*concurrency)*b.TimePerRequest())
 	fmt.Printf("Time per request:       %.3f [ms] (mean, across all concurrent requests)\n", b.TimePerRequest())
+	fmt.Printf("Transfer rate:          %.2f [Kbytes/sec] received\n", b.TransferRate())
 }
 
 func Test() {
