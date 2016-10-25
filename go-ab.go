@@ -139,6 +139,14 @@ func (ss Stats) MinCon() int {
 	return int(min * 1000)
 }
 
+func (ss Stats) TotalCon() int {
+	var sum float64
+	for _, s := range ss {
+		sum += s.ctime
+	}
+	return int(sum * 1000)
+}
+
 func GetUrl(requestUrl string) *ConnectionTime {
 	if b.startedCount >= *requests {
 		return nil
@@ -263,7 +271,7 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:      %d\n", stats.MinCon())
+	fmt.Printf("Connect:       %d  %d\n", stats.MinCon(), int(stats.TotalCon()/b.doneCount))
 }
 
 func Test() {
