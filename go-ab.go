@@ -131,7 +131,7 @@ type Stats []*Stat
 
 var stats Stats
 
-func (ss Stats) MinCon() int {
+func (ss Stats) MinConnectTime() int {
 	var min = math.MaxFloat64
 	for _, s := range ss {
 		min = math.Min(min, s.ctime)
@@ -139,7 +139,7 @@ func (ss Stats) MinCon() int {
 	return int(min * 1000)
 }
 
-func (ss Stats) TotalCon() int {
+func (ss Stats) TotalConnectTime() int {
 	var sum float64
 	for _, s := range ss {
 		sum += s.ctime
@@ -271,7 +271,10 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:       %d  %d\n", stats.MinCon(), int(stats.TotalCon()/b.doneCount))
+	fmt.Printf("Connect:       %d  %d\n",
+		stats.MinConnectTime(),
+		int(stats.TotalConnectTime()/b.doneCount),
+	)
 }
 
 func Test() {
