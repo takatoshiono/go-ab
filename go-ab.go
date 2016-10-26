@@ -147,6 +147,10 @@ func (ss Stats) TotalConnectTime() int {
 	return int(sum * 1000)
 }
 
+func (ss Stats) MeanConnectTime(n int) int {
+	return int(ss.TotalConnectTime() / n)
+}
+
 func GetUrl(requestUrl string) *ConnectionTime {
 	if b.startedCount >= *requests {
 		return nil
@@ -273,7 +277,7 @@ func OutputResults() {
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
 	fmt.Printf("Connect:       %d  %d\n",
 		stats.MinConnectTime(),
-		int(stats.TotalConnectTime()/b.doneCount),
+		stats.MeanConnectTime(b.doneCount),
 	)
 }
 
