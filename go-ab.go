@@ -131,24 +131,38 @@ type Stats []*Stat
 
 var stats Stats
 
-func (ss Stats) MinConnectTime() int {
+func (ss Stats) MinConnectTime() float64 {
 	var min = math.MaxFloat64
 	for _, s := range ss {
 		min = math.Min(min, s.ctime)
 	}
-	return int(min * 1000)
+	return min
 }
 
-func (ss Stats) TotalConnectTime() int {
+func (ss Stats) TotalConnectTime() float64 {
 	var sum float64
 	for _, s := range ss {
 		sum += s.ctime
 	}
-	return int(sum * 1000)
+	return sum
 }
 
-func (ss Stats) MeanConnectTime(n int) int {
-	return int(ss.TotalConnectTime() / n)
+func (ss Stats) MeanConnectTime(n int) float64 {
+	return ss.TotalConnectTime() / float64(n)
+}
+
+func (ss Stats) ConnectTimeSD(n int) float64 {
+	mean := ss.MeanConnectTime(n)
+	var variance float64
+	for _, s := range ss {
+		d := s.ctime - mean
+		variance += math.Pow(d, 2)
+	}
+	if n > 1 {
+		return math.Sqrt(variance / float64(n-1))
+	} else {
+		return 0
+	}
 }
 
 func GetUrl(requestUrl string) *ConnectionTime {
@@ -275,9 +289,10 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:       %d  %d\n",
-		stats.MinConnectTime(),
-		stats.MeanConnectTime(b.doneCount),
+	fmt.Printf("Connect:       %d  %d  %5.1f\n",
+		int(stats.MinConnectTime()*1000),
+		int(stats.MeanConnectTime(b.doneCount)*1000),
+		stats.ConnectTimeSD(b.doneCount),
 	)
 }
 
