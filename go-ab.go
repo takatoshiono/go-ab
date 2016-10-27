@@ -201,6 +201,8 @@ func GetUrl(requestUrl string) *ConnectionTime {
 	}
 
 	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	// Disable keep-alive request for test
+	req.Close = true
 
 	c.start = time.Now()
 	b.SetLasttime(time.Now())
