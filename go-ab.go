@@ -176,8 +176,6 @@ func GetUrl(requestUrl string) *ConnectionTime {
 
 	trace := &httptrace.ClientTrace{
 		ConnectStart: func(network, addr string) {
-			c.start = time.Now()
-			b.SetLasttime(time.Now())
 			//fmt.Println("ConnectStart:", c.start, network, addr)
 		},
 		GotConn: func(info httptrace.GotConnInfo) {
@@ -203,6 +201,10 @@ func GetUrl(requestUrl string) *ConnectionTime {
 	}
 
 	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+
+	c.start = time.Now()
+	b.SetLasttime(time.Now())
+
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
 		b.IncrBad()
