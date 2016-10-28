@@ -108,23 +108,23 @@ type ConnectionTime struct {
 	done      time.Time // Connection closed
 }
 
-func (c *ConnectionTime) WaitSecond() float64 {
-	return c.beginread.Sub(c.endwrite).Seconds()
+func (c *ConnectionTime) WaitSecond() time.Duration {
+	return c.beginread.Sub(c.endwrite)
 }
 
-func (c *ConnectionTime) TimeToConnect() float64 {
-	return c.connect.Sub(c.start).Seconds()
+func (c *ConnectionTime) TimeToConnect() time.Duration {
+	return c.connect.Sub(c.start)
 }
 
-func (c *ConnectionTime) TotalSecond() float64 {
-	return c.done.Sub(c.start).Seconds()
+func (c *ConnectionTime) TotalSecond() time.Duration {
+	return c.done.Sub(c.start)
 }
 
 type Stat struct {
-	starttime time.Time // start time of connection
-	waittime  float64   // between request and reading response
-	ctime     float64   // time to connect
-	time      float64   // time for connection
+	starttime time.Time     // start time of connection
+	waittime  time.Duration // between request and reading response
+	ctime     time.Duration // time to connect
+	time      time.Duration // time for connection
 }
 
 type Stats []*Stat
@@ -134,7 +134,8 @@ var stats Stats
 func (ss Stats) MinConnectTime() float64 {
 	var min = math.MaxFloat64
 	for _, s := range ss {
-		min = math.Min(min, s.ctime)
+		fmt.Println(float64(s.ctime / time.Microsecond))
+		min = math.Min(min, float64(s.ctime/time.Microsecond))
 	}
 	return min
 }
@@ -142,7 +143,7 @@ func (ss Stats) MinConnectTime() float64 {
 func (ss Stats) TotalConnectTime() float64 {
 	var sum float64
 	for _, s := range ss {
-		sum += s.ctime
+		sum += float64(s.ctime / time.Microsecond)
 	}
 	return sum
 }
@@ -155,7 +156,7 @@ func (ss Stats) ConnectTimeSD(n int) float64 {
 	mean := ss.MeanConnectTime(n)
 	var variance float64
 	for _, s := range ss {
-		d := s.ctime - mean
+		d := float64(s.ctime/time.Microsecond) - mean
 		variance += math.Pow(d, 2)
 	}
 	if n > 1 {
@@ -293,11 +294,15 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:       %d  %d  %5.1f\n",
-		int(stats.MinConnectTime()*1000),
-		int(stats.MeanConnectTime(b.doneCount)*1000),
-		stats.ConnectTimeSD(b.doneCount),
+	fmt.Printf("Connect:       %.0f  %.0f  %5.1f\n",
+		RoundMillisecond(stats.MinConnectTime()),
+		RoundMillisecond(stats.MeanConnectTime(b.doneCount)),
+		RoundMillisecond(stats.ConnectTimeSD(b.doneCount)),
 	)
+}
+
+func RoundMillisecond(s float64) float64 {
+	return (s + 500) / 1000
 }
 
 func Test() {
