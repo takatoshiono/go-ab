@@ -11,6 +11,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -134,7 +135,6 @@ var stats Stats
 func (ss Stats) MinConnectTime() float64 {
 	var min = math.MaxFloat64
 	for _, s := range ss {
-		fmt.Println(float64(s.ctime / time.Microsecond))
 		min = math.Min(min, float64(s.ctime/time.Microsecond))
 	}
 	return min
@@ -164,6 +164,24 @@ func (ss Stats) ConnectTimeSD(n int) float64 {
 	} else {
 		return 0
 	}
+}
+
+func (ss Stats) ConnectionTimeMedian(n int) float64 {
+	ctimes := ss.MapCtime()
+	sort.Float64s(ctimes)
+	if n > 1 && (n%2) != 0 {
+		return (ctimes[n/2] + ctimes[n/2+1]) / 2
+	} else {
+		return ctimes[n/2]
+	}
+}
+
+func (ss Stats) MapCtime() []float64 {
+	r := make([]float64, len(ss))
+	for i, s := range ss {
+		r[i] = float64(s.ctime / time.Microsecond)
+	}
+	return r
 }
 
 func GetUrl(requestUrl string) *ConnectionTime {
@@ -294,10 +312,11 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:       %.0f  %.0f  %5.1f\n",
+	fmt.Printf("Connect:       %.0f  %.0f  %5.1f %.0f\n",
 		RoundMillisecond(stats.MinConnectTime()),
 		RoundMillisecond(stats.MeanConnectTime(b.doneCount)),
 		RoundMillisecond(stats.ConnectTimeSD(b.doneCount)),
+		RoundMillisecond(stats.ConnectionTimeMedian(b.doneCount)),
 	)
 }
 
