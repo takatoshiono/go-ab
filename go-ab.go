@@ -320,7 +320,7 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:       %.0f  %.0f  %5.1f %.0f %.0f\n",
+	fmt.Printf("Connect:    %5.0f %4.0f %5.1f %6.0f %7.0f\n",
 		RoundMillisecond(stats.MinConnectTime()),
 		RoundMillisecond(stats.MeanConnectTime(b.doneCount)),
 		RoundMillisecond(stats.ConnectTimeSD(b.doneCount)),
