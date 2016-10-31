@@ -140,6 +140,14 @@ func (ss Stats) MinConnectTime() float64 {
 	return min
 }
 
+func (ss Stats) MaxConnectTime() float64 {
+	var max float64
+	for _, s := range ss {
+		max = math.Max(max, float64(s.ctime/time.Microsecond))
+	}
+	return max
+}
+
 func (ss Stats) TotalConnectTime() float64 {
 	var sum float64
 	for _, s := range ss {
@@ -312,11 +320,12 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:       %.0f  %.0f  %5.1f %.0f\n",
+	fmt.Printf("Connect:       %.0f  %.0f  %5.1f %.0f %.0f\n",
 		RoundMillisecond(stats.MinConnectTime()),
 		RoundMillisecond(stats.MeanConnectTime(b.doneCount)),
 		RoundMillisecond(stats.ConnectTimeSD(b.doneCount)),
 		RoundMillisecond(stats.ConnectionTimeMedian(b.doneCount)),
+		RoundMillisecond(stats.MaxConnectTime()),
 	)
 }
 
