@@ -101,7 +101,7 @@ func (b *Benchmark) TransferRate() float64 {
 
 var b = &Benchmark{}
 
-type ConnectionTime struct {
+type Result struct {
 	start     time.Time // Start of connection
 	connect   time.Time // Connected start writing
 	endwrite  time.Time // Request written
@@ -109,15 +109,15 @@ type ConnectionTime struct {
 	done      time.Time // Connection closed
 }
 
-func (c *ConnectionTime) WaitSecond() time.Duration {
+func (c *Result) WaitSecond() time.Duration {
 	return c.beginread.Sub(c.endwrite)
 }
 
-func (c *ConnectionTime) TimeToConnect() time.Duration {
+func (c *Result) TimeToConnect() time.Duration {
 	return c.connect.Sub(c.start)
 }
 
-func (c *ConnectionTime) TotalSecond() time.Duration {
+func (c *Result) TotalSecond() time.Duration {
 	return c.done.Sub(c.start)
 }
 
@@ -174,7 +174,7 @@ func (ss Stats) ConnectTimeSD(n int) float64 {
 	}
 }
 
-func (ss Stats) ConnectionTimeMedian(n int) float64 {
+func (ss Stats) ConnectTimeMedian(n int) float64 {
 	ctimes := ss.MapCtime()
 	sort.Float64s(ctimes)
 	if n > 1 && (n%2) != 0 {
@@ -192,14 +192,14 @@ func (ss Stats) MapCtime() []float64 {
 	return r
 }
 
-func GetUrl(requestUrl string) *ConnectionTime {
+func GetUrl(requestUrl string) *Result {
 	if b.startedCount >= *requests {
 		return nil
 	}
 	b.IncrStarted()
 	defer b.IncrDone()
 
-	c := &ConnectionTime{}
+	c := &Result{}
 
 	trace := &httptrace.ClientTrace{
 		ConnectStart: func(network, addr string) {
@@ -277,13 +277,13 @@ func GetUrl(requestUrl string) *ConnectionTime {
 	return c
 }
 
-func Request(c chan string, r chan *ConnectionTime) {
+func Request(c chan string, r chan *Result) {
 	for requestUrl := range c {
 		r <- GetUrl(requestUrl)
 	}
 }
 
-func SaveStats(r chan *ConnectionTime) {
+func SaveStats(r chan *Result) {
 	for c := range r {
 		if c != nil {
 			s := &Stat{
@@ -324,7 +324,7 @@ func OutputResults() {
 		RoundMillisecond(stats.MinConnectTime()),
 		RoundMillisecond(stats.MeanConnectTime(b.doneCount)),
 		RoundMillisecond(stats.ConnectTimeSD(b.doneCount)),
-		RoundMillisecond(stats.ConnectionTimeMedian(b.doneCount)),
+		RoundMillisecond(stats.ConnectTimeMedian(b.doneCount)),
 		RoundMillisecond(stats.MaxConnectTime()),
 	)
 }
@@ -340,7 +340,7 @@ func Test() {
 	b.start = time.Now()
 	b.lasttime = time.Now()
 
-	r := make(chan *ConnectionTime)
+	r := make(chan *Result)
 	go SaveStats(r)
 
 	ch := make([]chan string, *concurrency)
