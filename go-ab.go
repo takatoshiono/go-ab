@@ -110,18 +110,18 @@ type Result struct {
 }
 
 // between request and reading response
-func (c *Result) WaitTime() time.Duration {
-	return c.beginread.Sub(c.endwrite)
+func (r *Result) WaitTime() time.Duration {
+	return r.beginread.Sub(r.endwrite)
 }
 
 // time to connect
-func (c *Result) TimeToConnect() time.Duration {
-	return c.connect.Sub(c.start)
+func (r *Result) TimeToConnect() time.Duration {
+	return r.connect.Sub(r.start)
 }
 
 // time for connection
-func (c *Result) TotalTime() time.Duration {
-	return c.done.Sub(c.start)
+func (r *Result) TotalTime() time.Duration {
+	return r.done.Sub(r.start)
 }
 
 type ResultList []*Result
@@ -195,24 +195,24 @@ func GetUrl(requestUrl string) *Result {
 	b.IncrStarted()
 	defer b.IncrDone()
 
-	c := &Result{}
+	r := &Result{}
 
 	trace := &httptrace.ClientTrace{
 		ConnectStart: func(network, addr string) {
-			//fmt.Println("ConnectStart:", c.start, network, addr)
+			//fmt.Println("ConnectStart:", r.start, network, addr)
 		},
 		GotConn: func(info httptrace.GotConnInfo) {
-			c.connect = time.Now()
+			r.connect = time.Now()
 			b.SetLasttime(time.Now())
-			//fmt.Printf("GotConn: %v %+v\n", c.connect, info)
+			//fmt.Printf("GotConn: %v %+v\n", r.connect, info)
 		},
 		WroteRequest: func(info httptrace.WroteRequestInfo) {
 			if info.Err != nil {
 				fmt.Println("Failed to write the request", info.Err)
 			}
-			c.endwrite = time.Now()
+			r.endwrite = time.Now()
 			b.SetLasttime(time.Now())
-			//fmt.Println("WroteRequest:", c.endwrite)
+			//fmt.Println("WroteRequest:", r.endwrite)
 		},
 	}
 
@@ -227,7 +227,7 @@ func GetUrl(requestUrl string) *Result {
 	// Disable keep-alive request for test
 	req.Close = true
 
-	c.start = time.Now()
+	r.start = time.Now()
 	b.SetLasttime(time.Now())
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
@@ -238,7 +238,7 @@ func GetUrl(requestUrl string) *Result {
 	}
 	defer resp.Body.Close()
 
-	c.beginread = time.Now()
+	r.beginread = time.Now()
 	b.SetLasttime(time.Now())
 
 	LogDebugf("Response code = %s\n", resp.Status)
@@ -267,10 +267,10 @@ func GetUrl(requestUrl string) *Result {
 
 	b.IncrGood()
 
-	c.done = time.Now()
+	r.done = time.Now()
 	b.SetLasttime(time.Now())
 
-	return c
+	return r
 }
 
 func Request(c chan string, r chan *Result) {
