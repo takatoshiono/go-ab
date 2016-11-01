@@ -11,11 +11,12 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/takatoshiono/go-ab/stats"
 )
 
 var verbosity *int
@@ -127,58 +128,6 @@ func (r *Result) Total() time.Duration {
 type ResultList []*Result
 
 var results ResultList
-
-func (results ResultList) MinConnect() float64 {
-	var min = math.MaxFloat64
-	for _, r := range results {
-		min = math.Min(min, float64(r.Connect()/time.Microsecond))
-	}
-	return min
-}
-
-func (results ResultList) MaxConnect() float64 {
-	var max float64
-	for _, r := range results {
-		max = math.Max(max, float64(r.Connect()/time.Microsecond))
-	}
-	return max
-}
-
-func (results ResultList) TotalConnect() float64 {
-	var sum float64
-	for _, r := range results {
-		sum += float64(r.Connect() / time.Microsecond)
-	}
-	return sum
-}
-
-func (results ResultList) MeanConnect(n int) float64 {
-	return results.TotalConnect() / float64(n)
-}
-
-func (results ResultList) ConnectSD(n int) float64 {
-	mean := results.MeanConnect(n)
-	var variance float64
-	for _, r := range results {
-		d := float64(r.Connect()/time.Microsecond) - mean
-		variance += math.Pow(d, 2)
-	}
-	if n > 1 {
-		return math.Sqrt(variance / float64(n-1))
-	} else {
-		return 0
-	}
-}
-
-func (results ResultList) ConnectMedian(n int) float64 {
-	connects := results.Connects()
-	sort.Float64s(connects)
-	if n > 1 && (n%2) != 0 {
-		return (connects[n/2] + connects[n/2+1]) / 2
-	} else {
-		return connects[n/2]
-	}
-}
 
 func (results ResultList) Connects() []float64 {
 	connects := make([]float64, len(results))
@@ -312,11 +261,11 @@ func OutputResults() {
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
 	fmt.Printf("Connect:    %5.0f %4.0f %5.1f %6.0f %7.0f\n",
-		RoundMillisecond(results.MinConnect()),
-		RoundMillisecond(results.MeanConnect(b.doneCount)),
-		RoundMillisecond(results.ConnectSD(b.doneCount)),
-		RoundMillisecond(results.ConnectMedian(b.doneCount)),
-		RoundMillisecond(results.MaxConnect()),
+		RoundMillisecond(stats.Min(results.Connects())),
+		RoundMillisecond(stats.Mean(results.Connects())),
+		RoundMillisecond(stats.StandardDeviation(results.Connects())),
+		RoundMillisecond(stats.Median(results.Connects())),
+		RoundMillisecond(stats.Max(results.Connects())),
 	)
 }
 
