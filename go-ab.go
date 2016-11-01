@@ -109,62 +109,58 @@ type Result struct {
 	done      time.Time // Connection closed
 }
 
-func (c *Result) WaitSecond() time.Duration {
+// between request and reading response
+func (c *Result) WaitTime() time.Duration {
 	return c.beginread.Sub(c.endwrite)
 }
 
+// time to connect
 func (c *Result) TimeToConnect() time.Duration {
 	return c.connect.Sub(c.start)
 }
 
-func (c *Result) TotalSecond() time.Duration {
+// time for connection
+func (c *Result) TotalTime() time.Duration {
 	return c.done.Sub(c.start)
 }
 
-type Stat struct {
-	starttime time.Time     // start time of connection
-	waittime  time.Duration // between request and reading response
-	ctime     time.Duration // time to connect
-	time      time.Duration // time for connection
-}
+type ResultList []*Result
 
-type Stats []*Stat
+var results ResultList
 
-var stats Stats
-
-func (ss Stats) MinConnectTime() float64 {
+func (results ResultList) MinConnectTime() float64 {
 	var min = math.MaxFloat64
-	for _, s := range ss {
-		min = math.Min(min, float64(s.ctime/time.Microsecond))
+	for _, r := range results {
+		min = math.Min(min, float64(r.TimeToConnect()/time.Microsecond))
 	}
 	return min
 }
 
-func (ss Stats) MaxConnectTime() float64 {
+func (results ResultList) MaxConnectTime() float64 {
 	var max float64
-	for _, s := range ss {
-		max = math.Max(max, float64(s.ctime/time.Microsecond))
+	for _, r := range results {
+		max = math.Max(max, float64(r.TimeToConnect()/time.Microsecond))
 	}
 	return max
 }
 
-func (ss Stats) TotalConnectTime() float64 {
+func (results ResultList) TotalConnectTime() float64 {
 	var sum float64
-	for _, s := range ss {
-		sum += float64(s.ctime / time.Microsecond)
+	for _, r := range results {
+		sum += float64(r.TimeToConnect() / time.Microsecond)
 	}
 	return sum
 }
 
-func (ss Stats) MeanConnectTime(n int) float64 {
-	return ss.TotalConnectTime() / float64(n)
+func (results ResultList) MeanConnectTime(n int) float64 {
+	return results.TotalConnectTime() / float64(n)
 }
 
-func (ss Stats) ConnectTimeSD(n int) float64 {
-	mean := ss.MeanConnectTime(n)
+func (results ResultList) ConnectTimeSD(n int) float64 {
+	mean := results.MeanConnectTime(n)
 	var variance float64
-	for _, s := range ss {
-		d := float64(s.ctime/time.Microsecond) - mean
+	for _, r := range results {
+		d := float64(r.TimeToConnect()/time.Microsecond) - mean
 		variance += math.Pow(d, 2)
 	}
 	if n > 1 {
@@ -174,8 +170,8 @@ func (ss Stats) ConnectTimeSD(n int) float64 {
 	}
 }
 
-func (ss Stats) ConnectTimeMedian(n int) float64 {
-	ctimes := ss.MapCtime()
+func (results ResultList) ConnectTimeMedian(n int) float64 {
+	ctimes := results.MapCtime()
 	sort.Float64s(ctimes)
 	if n > 1 && (n%2) != 0 {
 		return (ctimes[n/2] + ctimes[n/2+1]) / 2
@@ -184,12 +180,12 @@ func (ss Stats) ConnectTimeMedian(n int) float64 {
 	}
 }
 
-func (ss Stats) MapCtime() []float64 {
-	r := make([]float64, len(ss))
-	for i, s := range ss {
-		r[i] = float64(s.ctime / time.Microsecond)
+func (results ResultList) MapCtime() []float64 {
+	ctimes := make([]float64, len(results))
+	for i, r := range results {
+		ctimes[i] = float64(r.TimeToConnect() / time.Microsecond)
 	}
-	return r
+	return ctimes
 }
 
 func GetUrl(requestUrl string) *Result {
@@ -283,15 +279,10 @@ func Request(c chan string, r chan *Result) {
 	}
 }
 
-func SaveStats(r chan *Result) {
-	for c := range r {
-		if c != nil {
-			s := &Stat{
-				c.start,
-				c.WaitSecond(),
-				c.TimeToConnect(),
-				c.TotalSecond()}
-			stats = append(stats, s)
+func SaveResult(ch chan *Result) {
+	for r := range ch {
+		if r != nil {
+			results = append(results, r)
 		}
 	}
 }
@@ -321,11 +312,11 @@ func OutputResults() {
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
 	fmt.Printf("Connect:    %5.0f %4.0f %5.1f %6.0f %7.0f\n",
-		RoundMillisecond(stats.MinConnectTime()),
-		RoundMillisecond(stats.MeanConnectTime(b.doneCount)),
-		RoundMillisecond(stats.ConnectTimeSD(b.doneCount)),
-		RoundMillisecond(stats.ConnectTimeMedian(b.doneCount)),
-		RoundMillisecond(stats.MaxConnectTime()),
+		RoundMillisecond(results.MinConnectTime()),
+		RoundMillisecond(results.MeanConnectTime(b.doneCount)),
+		RoundMillisecond(results.ConnectTimeSD(b.doneCount)),
+		RoundMillisecond(results.ConnectTimeMedian(b.doneCount)),
+		RoundMillisecond(results.MaxConnectTime()),
 	)
 }
 
@@ -341,7 +332,7 @@ func Test() {
 	b.lasttime = time.Now()
 
 	r := make(chan *Result)
-	go SaveStats(r)
+	go SaveResult(r)
 
 	ch := make([]chan string, *concurrency)
 	for i := 0; i < *concurrency; i++ {
@@ -424,7 +415,7 @@ func main() {
 	log.SetPrefix("LOG: ")
 	log.SetFlags(0)
 
-	stats = make(Stats, 0, *concurrency)
+	results = make(ResultList, 0, *concurrency)
 
 	Test()
 }
