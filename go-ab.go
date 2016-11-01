@@ -171,21 +171,21 @@ func (results ResultList) ConnectSD(n int) float64 {
 }
 
 func (results ResultList) ConnectMedian(n int) float64 {
-	ctimes := results.MapCtime()
-	sort.Float64s(ctimes)
+	connects := results.Connects()
+	sort.Float64s(connects)
 	if n > 1 && (n%2) != 0 {
-		return (ctimes[n/2] + ctimes[n/2+1]) / 2
+		return (connects[n/2] + connects[n/2+1]) / 2
 	} else {
-		return ctimes[n/2]
+		return connects[n/2]
 	}
 }
 
-func (results ResultList) MapCtime() []float64 {
-	ctimes := make([]float64, len(results))
+func (results ResultList) Connects() []float64 {
+	connects := make([]float64, len(results))
 	for i, r := range results {
-		ctimes[i] = float64(r.Connect() / time.Microsecond)
+		connects[i] = float64(r.Connect() / time.Microsecond)
 	}
-	return ctimes
+	return connects
 }
 
 func GetUrl(requestUrl string) *Result {
