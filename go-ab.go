@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
@@ -129,12 +128,14 @@ type ResultList []*Result
 
 var results ResultList
 
-func (results ResultList) Connects() []float64 {
-	connects := make([]float64, len(results))
-	for i, r := range results {
-		connects[i] = float64(r.Connect() / time.Microsecond)
+func (results ResultList) Durations() map[string][]float64 {
+	d := map[string][]float64{
+		"connect": make([]float64, len(results)),
 	}
-	return connects
+	for i, r := range results {
+		d["connect"][i] = float64(r.Connect() / time.Microsecond)
+	}
+	return d
 }
 
 func GetUrl(requestUrl string) *Result {
@@ -237,6 +238,8 @@ func SaveResult(ch chan *Result) {
 }
 
 func OutputResults() {
+	durations := results.Durations()
+
 	fmt.Printf("\n\n")
 	fmt.Printf("Server Software:        %s\n", servername)
 	fmt.Printf("Server Hostname:        %s\n", hostname)
@@ -261,11 +264,11 @@ func OutputResults() {
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
 	fmt.Printf("Connect:    %5.0f %4.0f %5.1f %6.0f %7.0f\n",
-		RoundMillisecond(stats.Min(results.Connects())),
-		RoundMillisecond(stats.Mean(results.Connects())),
-		RoundMillisecond(stats.StandardDeviation(results.Connects())),
-		RoundMillisecond(stats.Median(results.Connects())),
-		RoundMillisecond(stats.Max(results.Connects())),
+		RoundMillisecond(stats.Min(durations["connect"])),
+		RoundMillisecond(stats.Mean(durations["connect"])),
+		RoundMillisecond(stats.StandardDeviation(durations["connect"])),
+		RoundMillisecond(stats.Median(durations["connect"])),
+		RoundMillisecond(stats.Max(durations["connect"])),
 	)
 }
 
