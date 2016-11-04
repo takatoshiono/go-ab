@@ -131,10 +131,16 @@ var results ResultList
 
 func (results ResultList) Durations() map[string][]float64 {
 	d := map[string][]float64{
-		"connect": make([]float64, len(results)),
+		"connect":    make([]float64, len(results)),
+		"processing": make([]float64, len(results)),
+		"waiting":    make([]float64, len(results)),
+		"total":      make([]float64, len(results)),
 	}
 	for i, r := range results {
 		d["connect"][i] = float64(r.Connect() / time.Microsecond)
+		d["processing"][i] = float64((r.Total() - r.Connect()) / time.Microsecond)
+		d["waiting"][i] = float64(r.Wait() / time.Microsecond)
+		d["total"][i] = float64(r.Total() / time.Microsecond)
 	}
 	return d
 }
@@ -265,12 +271,35 @@ func OutputResults() {
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
 	fmt.Printf("              min  mean[+/-sd] median   max\n")
-	fmt.Printf("Connect:    %5.0f %4.0f %5.1f %6.0f %7.0f\n",
+
+	formatString := "%5.0f %4.0f %5.1f %6.0f %7.0f"
+	fmt.Printf("Connect:    "+formatString+"\n",
 		RoundMillisecond(stats.Min(durations["connect"])),
 		RoundMillisecond(stats.Mean(durations["connect"])),
 		RoundMillisecond(stats.StandardDeviation(durations["connect"])),
 		RoundMillisecond(stats.Median(durations["connect"])),
 		RoundMillisecond(stats.Max(durations["connect"])),
+	)
+	fmt.Printf("Processing: "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["processing"])),
+		RoundMillisecond(stats.Mean(durations["processing"])),
+		RoundMillisecond(stats.StandardDeviation(durations["processing"])),
+		RoundMillisecond(stats.Median(durations["processing"])),
+		RoundMillisecond(stats.Max(durations["processing"])),
+	)
+	fmt.Printf("Waiting:    "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["waiting"])),
+		RoundMillisecond(stats.Mean(durations["waiting"])),
+		RoundMillisecond(stats.StandardDeviation(durations["waiting"])),
+		RoundMillisecond(stats.Median(durations["waiting"])),
+		RoundMillisecond(stats.Max(durations["waiting"])),
+	)
+	fmt.Printf("Total:      "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["total"])),
+		RoundMillisecond(stats.Mean(durations["total"])),
+		RoundMillisecond(stats.StandardDeviation(durations["total"])),
+		RoundMillisecond(stats.Median(durations["total"])),
+		RoundMillisecond(stats.Max(durations["total"])),
 	)
 }
 
