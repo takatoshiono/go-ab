@@ -21,6 +21,7 @@ import (
 var verbosity *int
 var requests *int
 var concurrency *int
+var keepalive *bool
 var targetUrl *url.URL
 
 var servername string
@@ -174,8 +175,9 @@ func GetUrl(requestUrl string) *Result {
 	}
 
 	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
-	// Disable keep-alive request for test
-	req.Close = true
+	if !*keepalive {
+		req.Close = true
+	}
 
 	r.start = time.Now()
 	b.SetLasttime(time.Now())
@@ -344,6 +346,7 @@ func main() {
 	verbosity = flag.Int("v", 0, "How much troubleshooting info to print")
 	requests = flag.Int("n", 1, "Number of requests to perform")
 	concurrency = flag.Int("c", 1, "Number of multiple requests to make at a time")
+	keepalive = flag.Bool("k", false, "keep-alive connections")
 	flag.Parse()
 
 	rawurl := flag.Arg(0)
