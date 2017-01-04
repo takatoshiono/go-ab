@@ -371,6 +371,12 @@ func ParseUrl(rawurl string) error {
 	return nil
 }
 
+func PrintUsage() {
+	fmt.Println("Usage: go-ab [options] [http[s]://]hostname[:port]/path")
+	fmt.Println("Options are:")
+	flag.PrintDefaults()
+}
+
 func main() {
 	verbosity = flag.Int("v", 0, "How much troubleshooting info to print")
 	requests = flag.Int("n", 1, "Number of requests to perform")
@@ -380,19 +386,20 @@ func main() {
 
 	rawurl := flag.Arg(0)
 	if rawurl == "" {
-		fmt.Println("Usage: go-ab [http[s]://]hostname[:port]/path")
+		PrintUsage()
 		return
 	}
 
 	err := ParseUrl(rawurl)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: invalid URL\n", rawurl)
-		// TODO: show usage
+		PrintUsage()
 		return
 	}
 
 	if *requests < *concurrency {
-		// TODO: show usage
+		fmt.Fprintf(os.Stderr, "%s: Cannot use concurrency level greater than total number of requests\n", os.Args[0])
+		PrintUsage()
 		return
 	}
 
