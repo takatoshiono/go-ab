@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httptrace"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/takatoshiono/go-ab/stats"
+	"github.com/tcnksm/go-httpstat"
 )
 
 var verbosity *int
@@ -108,21 +108,22 @@ type Result struct {
 	endwrite  time.Time // Request written
 	beginread time.Time // First byte of input
 	done      time.Time // Connection closed
+	httpstat  httpstat.Result
 }
 
 // between request and reading response
 func (r *Result) Wait() time.Duration {
-	return r.beginread.Sub(r.endwrite)
+	return r.httpstat.ServerProcessing
 }
 
 // time to connect
 func (r *Result) Connect() time.Duration {
-	return r.connect.Sub(r.start)
+	return r.httpstat.Connect
 }
 
 // time for connection
 func (r *Result) Total() time.Duration {
-	return r.done.Sub(r.start)
+	return r.httpstat.Total(r.done)
 }
 
 type ResultList []*Result
@@ -154,25 +155,6 @@ func GetUrl(requestUrl string) *Result {
 
 	r := &Result{}
 
-	trace := &httptrace.ClientTrace{
-		ConnectStart: func(network, addr string) {
-			//fmt.Println("ConnectStart:", r.start, network, addr)
-		},
-		GotConn: func(info httptrace.GotConnInfo) {
-			r.connect = time.Now()
-			b.SetLasttime(time.Now())
-			//fmt.Printf("GotConn: %v %+v\n", r.connect, info)
-		},
-		WroteRequest: func(info httptrace.WroteRequestInfo) {
-			if info.Err != nil {
-				fmt.Println("Failed to write the request", info.Err)
-			}
-			r.endwrite = time.Now()
-			b.SetLasttime(time.Now())
-			//fmt.Println("WroteRequest:", r.endwrite)
-		},
-	}
-
 	req, err := http.NewRequest("GET", requestUrl, nil)
 	if err != nil {
 		b.IncrBad()
@@ -180,7 +162,7 @@ func GetUrl(requestUrl string) *Result {
 		return nil
 	}
 
-	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	req = req.WithContext(httpstat.WithHTTPStat(req.Context(), &r.httpstat))
 	if !*keepalive {
 		req.Close = true
 	}
@@ -225,6 +207,7 @@ func GetUrl(requestUrl string) *Result {
 
 	b.IncrGood()
 
+	r.httpstat.End(time.Now())
 	r.done = time.Now()
 	b.SetLasttime(time.Now())
 
