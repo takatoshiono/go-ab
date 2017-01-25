@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httptrace"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/takatoshiono/go-ab/stats"
+	"github.com/tcnksm/go-httpstat"
 )
 
 var verbosity *int
@@ -103,26 +103,16 @@ func (b *Benchmark) TransferRate() float64 {
 var b = &Benchmark{}
 
 type Result struct {
-	start     time.Time // Start of connection
-	connect   time.Time // Connected start writing
-	endwrite  time.Time // Request written
-	beginread time.Time // First byte of input
-	done      time.Time // Connection closed
+	done     time.Time
+	httpstat httpstat.Result
 }
 
-// between request and reading response
-func (r *Result) Wait() time.Duration {
-	return r.beginread.Sub(r.endwrite)
+func (r *Result) ContentTransfer() time.Duration {
+	return r.httpstat.ContentTransfer(r.done)
 }
 
-// time to connect
-func (r *Result) Connect() time.Duration {
-	return r.connect.Sub(r.start)
-}
-
-// time for connection
 func (r *Result) Total() time.Duration {
-	return r.done.Sub(r.start)
+	return r.httpstat.Total(r.done)
 }
 
 type ResultList []*Result
@@ -131,16 +121,20 @@ var results ResultList
 
 func (results ResultList) Durations() map[string][]float64 {
 	d := map[string][]float64{
-		"connect":    make([]float64, len(results)),
-		"processing": make([]float64, len(results)),
-		"waiting":    make([]float64, len(results)),
-		"total":      make([]float64, len(results)),
+		"DNSLookup":        make([]float64, len(results)),
+		"TCPConnection":    make([]float64, len(results)),
+		"TLSHandshake":     make([]float64, len(results)),
+		"ServerProcessing": make([]float64, len(results)),
+		"ContentTransfer":  make([]float64, len(results)),
+		"Total":            make([]float64, len(results)),
 	}
 	for i, r := range results {
-		d["connect"][i] = float64(r.Connect() / time.Microsecond)
-		d["processing"][i] = float64((r.Total() - r.Connect()) / time.Microsecond)
-		d["waiting"][i] = float64(r.Wait() / time.Microsecond)
-		d["total"][i] = float64(r.Total() / time.Microsecond)
+		d["DNSLookup"][i] = float64(r.httpstat.DNSLookup / time.Microsecond)
+		d["TCPConnection"][i] = float64(r.httpstat.TCPConnection / time.Microsecond)
+		d["TLSHandshake"][i] = float64(r.httpstat.TLSHandshake / time.Microsecond)
+		d["ServerProcessing"][i] = float64(r.httpstat.ServerProcessing / time.Microsecond)
+		d["ContentTransfer"][i] = float64(r.ContentTransfer() / time.Microsecond)
+		d["Total"][i] = float64(r.Total() / time.Microsecond)
 	}
 	return d
 }
@@ -154,25 +148,6 @@ func GetUrl(requestUrl string) *Result {
 
 	r := &Result{}
 
-	trace := &httptrace.ClientTrace{
-		ConnectStart: func(network, addr string) {
-			//fmt.Println("ConnectStart:", r.start, network, addr)
-		},
-		GotConn: func(info httptrace.GotConnInfo) {
-			r.connect = time.Now()
-			b.SetLasttime(time.Now())
-			//fmt.Printf("GotConn: %v %+v\n", r.connect, info)
-		},
-		WroteRequest: func(info httptrace.WroteRequestInfo) {
-			if info.Err != nil {
-				fmt.Println("Failed to write the request", info.Err)
-			}
-			r.endwrite = time.Now()
-			b.SetLasttime(time.Now())
-			//fmt.Println("WroteRequest:", r.endwrite)
-		},
-	}
-
 	req, err := http.NewRequest("GET", requestUrl, nil)
 	if err != nil {
 		b.IncrBad()
@@ -180,12 +155,11 @@ func GetUrl(requestUrl string) *Result {
 		return nil
 	}
 
-	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	req = req.WithContext(httpstat.WithHTTPStat(req.Context(), &r.httpstat))
 	if !*keepalive {
 		req.Close = true
 	}
 
-	r.start = time.Now()
 	b.SetLasttime(time.Now())
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
@@ -196,7 +170,6 @@ func GetUrl(requestUrl string) *Result {
 	}
 	defer resp.Body.Close()
 
-	r.beginread = time.Now()
 	b.SetLasttime(time.Now())
 
 	LogDebugf("Response code = %s\n", resp.Status)
@@ -225,6 +198,7 @@ func GetUrl(requestUrl string) *Result {
 
 	b.IncrGood()
 
+	r.httpstat.End(time.Now())
 	r.done = time.Now()
 	b.SetLasttime(time.Now())
 
@@ -270,36 +244,50 @@ func OutputResults() {
 	fmt.Printf("Transfer rate:          %.2f [Kbytes/sec] received\n", b.TransferRate())
 	fmt.Printf("\n")
 	fmt.Printf("Connection Times (ms)\n")
-	fmt.Printf("              min  mean[+/-sd] median   max\n")
+	fmt.Printf("                     min  mean[+/-sd] median   max\n")
 
 	formatString := "%5.0f %4.0f %5.1f %6.0f %7.0f"
-	fmt.Printf("Connect:    "+formatString+"\n",
-		RoundMillisecond(stats.Min(durations["connect"])),
-		RoundMillisecond(stats.Mean(durations["connect"])),
-		RoundMillisecond(stats.StandardDeviation(durations["connect"])),
-		RoundMillisecond(stats.Median(durations["connect"])),
-		RoundMillisecond(stats.Max(durations["connect"])),
+	fmt.Printf("DNSLookup:         "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["DNSLookup"])),
+		RoundMillisecond(stats.Mean(durations["DNSLookup"])),
+		RoundMillisecond(stats.StandardDeviation(durations["DNSLookup"])),
+		RoundMillisecond(stats.Median(durations["DNSLookup"])),
+		RoundMillisecond(stats.Max(durations["DNSLookup"])),
 	)
-	fmt.Printf("Processing: "+formatString+"\n",
-		RoundMillisecond(stats.Min(durations["processing"])),
-		RoundMillisecond(stats.Mean(durations["processing"])),
-		RoundMillisecond(stats.StandardDeviation(durations["processing"])),
-		RoundMillisecond(stats.Median(durations["processing"])),
-		RoundMillisecond(stats.Max(durations["processing"])),
+	fmt.Printf("TCPConnection:     "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["TCPConnection"])),
+		RoundMillisecond(stats.Mean(durations["TCPConnection"])),
+		RoundMillisecond(stats.StandardDeviation(durations["TCPConnection"])),
+		RoundMillisecond(stats.Median(durations["TCPConnection"])),
+		RoundMillisecond(stats.Max(durations["TCPConnection"])),
 	)
-	fmt.Printf("Waiting:    "+formatString+"\n",
-		RoundMillisecond(stats.Min(durations["waiting"])),
-		RoundMillisecond(stats.Mean(durations["waiting"])),
-		RoundMillisecond(stats.StandardDeviation(durations["waiting"])),
-		RoundMillisecond(stats.Median(durations["waiting"])),
-		RoundMillisecond(stats.Max(durations["waiting"])),
+	fmt.Printf("TLSHandshake:      "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["TLSHandshake"])),
+		RoundMillisecond(stats.Mean(durations["TLSHandshake"])),
+		RoundMillisecond(stats.StandardDeviation(durations["TLSHandshake"])),
+		RoundMillisecond(stats.Median(durations["TLSHandshake"])),
+		RoundMillisecond(stats.Max(durations["TLSHandshake"])),
 	)
-	fmt.Printf("Total:      "+formatString+"\n",
-		RoundMillisecond(stats.Min(durations["total"])),
-		RoundMillisecond(stats.Mean(durations["total"])),
-		RoundMillisecond(stats.StandardDeviation(durations["total"])),
-		RoundMillisecond(stats.Median(durations["total"])),
-		RoundMillisecond(stats.Max(durations["total"])),
+	fmt.Printf("ServerProcessing:  "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["ServerProcessing"])),
+		RoundMillisecond(stats.Mean(durations["ServerProcessing"])),
+		RoundMillisecond(stats.StandardDeviation(durations["ServerProcessing"])),
+		RoundMillisecond(stats.Median(durations["ServerProcessing"])),
+		RoundMillisecond(stats.Max(durations["ServerProcessing"])),
+	)
+	fmt.Printf("ContentTransfer:   "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["ContentTransfer"])),
+		RoundMillisecond(stats.Mean(durations["ContentTransfer"])),
+		RoundMillisecond(stats.StandardDeviation(durations["ContentTransfer"])),
+		RoundMillisecond(stats.Median(durations["ContentTransfer"])),
+		RoundMillisecond(stats.Max(durations["ContentTransfer"])),
+	)
+	fmt.Printf("Total:             "+formatString+"\n",
+		RoundMillisecond(stats.Min(durations["Total"])),
+		RoundMillisecond(stats.Mean(durations["Total"])),
+		RoundMillisecond(stats.StandardDeviation(durations["Total"])),
+		RoundMillisecond(stats.Median(durations["Total"])),
+		RoundMillisecond(stats.Max(durations["Total"])),
 	)
 }
 
