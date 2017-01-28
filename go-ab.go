@@ -331,7 +331,7 @@ func Test() {
 		for i := 0; i < *concurrency; i++ {
 			ch[i] <- targetUrl.String()
 		}
-		if b.doneCount >= *requests {
+		if b.doneCount >= *requests && len(results) >= *requests {
 			break
 		}
 	}
