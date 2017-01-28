@@ -52,10 +52,12 @@ func StandardDeviation(values []float64) float64 {
 
 func Median(values []float64) float64 {
 	var n = len(values)
-	sort.Float64s(values)
+	c := make([]float64, n)
+	copy(c, values)
+	sort.Float64s(c)
 	if n > 1 && (n%2) != 0 {
-		return (values[n/2] + values[n/2+1]) / 2
+		return (c[n/2] + c[n/2+1]) / 2
 	} else {
-		return values[n/2]
+		return c[n/2]
 	}
 }

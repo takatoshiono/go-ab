@@ -9,6 +9,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -289,6 +290,21 @@ func OutputResults() {
 		RoundMillisecond(stats.Median(durations["Total"])),
 		RoundMillisecond(stats.Max(durations["Total"])),
 	)
+	fmt.Printf("\n")
+	fmt.Printf("Percentage of the requests served within a certain time (ms)")
+	fmt.Printf("\n")
+
+	sort.Float64s(durations["Total"])
+	percentages := [9]int{50, 66, 75, 80, 90, 95, 98, 99, 100}
+	for _, perc := range percentages {
+		if perc == 100 {
+			fmt.Printf(" 100%%  %5.0f (longest request)\n",
+				RoundMillisecond(durations["Total"][b.doneCount-1]))
+		} else {
+			fmt.Printf("  %d%%  %5.0f\n", perc,
+				RoundMillisecond(durations["Total"][b.doneCount*perc/100]))
+		}
+	}
 }
 
 func RoundMillisecond(s float64) float64 {
