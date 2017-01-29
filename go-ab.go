@@ -23,6 +23,7 @@ var verbosity *int
 var requests *int
 var concurrency *int
 var keepalive *bool
+var quiet *bool
 var targetUrl *url.URL
 
 var servername string
@@ -386,6 +387,7 @@ func main() {
 	requests = flag.Int("n", 1, "Number of requests to perform")
 	concurrency = flag.Int("c", 1, "Number of multiple requests to make at a time")
 	keepalive = flag.Bool("k", false, "keep-alive connections")
+	quiet = flag.Bool("q", false, "Do not show progress when doing more than 150 requests")
 	flag.Parse()
 
 	rawurl := flag.Arg(0)
