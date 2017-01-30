@@ -6,7 +6,7 @@ class Benchmark
   PATTERN = /Requests per second:\s+([\d\.]+)\s+\[#\/sec\]/
 
   def initialize
-    @url = 'http://127.0.0.1:8080/'
+    @url = 'http://127.0.0.1:8000/'
     @requests = 1_000
     @min_concurrency = 1
     @max_concurrency = 100
