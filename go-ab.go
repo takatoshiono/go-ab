@@ -24,6 +24,7 @@ var requests *int
 var concurrency *int
 var keepalive *bool
 var quiet *bool
+var timeout *int
 var targetUrl *url.URL
 
 var servername string
@@ -164,7 +165,10 @@ func GetUrl(requestUrl string) *Result {
 
 	b.SetLasttime(time.Now())
 
-	resp, err := http.DefaultTransport.RoundTrip(req)
+	client := &http.Client{
+		Timeout: time.Duration(*timeout) * time.Second,
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		b.IncrBad()
 		fmt.Println(err)
@@ -388,6 +392,7 @@ func main() {
 	concurrency = flag.Int("c", 1, "Number of multiple requests to make at a time")
 	keepalive = flag.Bool("k", false, "keep-alive connections")
 	quiet = flag.Bool("q", false, "Do not show progress when doing more than 150 requests")
+	timeout = flag.Int("s", 30, "Seconds to max. wait for each response")
 	flag.Parse()
 
 	rawurl := flag.Arg(0)
