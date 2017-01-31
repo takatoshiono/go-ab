@@ -13,6 +13,7 @@ class Benchmark
     @min_concurrency = 1
     @max_concurrency = opts[:max_concurrency]
     @step = opts[:step]
+    @interval_sec = opts[:interval_sec]
 
     @concurrencies = (@min_concurrency..@max_concurrency).select { |n| n == 1 || (n % @step).zero? }
     @ab_results = []
@@ -24,6 +25,7 @@ class Benchmark
       STDERR.print "concurrency: #{concurrency}\r"
       @ab_results << do_request(AB, concurrency)
       @go_ab_results << do_request(GO_AB, concurrency)
+      sleep(@interval_sec)
     end
     STDERR.puts ""
   end
@@ -50,13 +52,15 @@ opts = {
   url: 'http://127.0.0.1:8000/',
   requests: 1_000,
   max_concurrency: 100,
-  step: 10
+  step: 10,
+  interval_sec: 30,
 }
 
 option_parser.on('-u', '--url URL') { |v| opts[:url] = v }
 option_parser.on('-n', '--requests Number of Requests') { |v| opts[:requests] = v.to_i }
 option_parser.on('-c', '--concurrency Max concurrency') { |v| opts[:max_concurrency] = v.to_i }
 option_parser.on('-s', '--step Number of increment step') { |v| opts[:step] = v.to_i }
+option_parser.on('-i', '--interval Interval(sec) between benchmark') { |v| opts[:interval_sec] = v.to_i }
 
 option_parser.parse!(ARGV)
 
