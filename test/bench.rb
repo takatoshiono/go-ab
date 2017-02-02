@@ -5,7 +5,10 @@ require 'optparse'
 class Benchmark
   AB = 'ab'
   GO_AB = 'go-ab'
-  PATTERN = /Requests per second:\s+([\d\.]+)\s+\[#\/sec\]/
+  HEY = 'hey'
+
+  AB_PATTERN = /Requests per second:\s+([\d\.]+)\s+\[#\/sec\]/
+  HEY_PATTERN = /Requests\/sec:\s+([\d\.]+)/
 
   def initialize(opts)
     @url = opts[:url]
@@ -18,13 +21,15 @@ class Benchmark
     @concurrencies = (@min_concurrency..@max_concurrency).select { |n| n == 1 || (n % @step).zero? }
     @ab_results = []
     @go_ab_results = []
+    @hey_results = []
   end
 
   def run
     @concurrencies.each do |concurrency|
       STDERR.print "concurrency: #{concurrency}\r"
-      @ab_results << do_request(AB, concurrency)
-      @go_ab_results << do_request(GO_AB, concurrency)
+      @ab_results << do_request(AB, '-q', concurrency, AB_PATTERN)
+      @go_ab_results << do_request(GO_AB, '-q', concurrency, AB_PATTERN)
+      @hey_results << do_request(HEY, '', concurrency, HEY_PATTERN)
       sleep(@interval_sec)
     end
     STDERR.puts ""
@@ -34,13 +39,14 @@ class Benchmark
     puts ['concurrency', *@concurrencies].join("\t")
     puts [AB, *@ab_results].join("\t")
     puts [GO_AB, *@go_ab_results].join("\t")
+    puts [HEY, *@hey_results].join("\t")
   end
 
   private
 
-  def do_request(cmd, concurrency)
+  def do_request(cmd, opts, concurrency, pattern)
     throughput = nil
-    `#{cmd} -q -n #{@requests} -c #{concurrency} #{@url}`.match(PATTERN) { |m| throughput = m[1] }
+    `#{cmd} #{opts} -n #{@requests} -c #{concurrency} #{@url}`.match(pattern) { |m| throughput = m[1] }
     throughput.to_f
   end
 end
