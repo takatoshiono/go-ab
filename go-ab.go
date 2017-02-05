@@ -142,7 +142,7 @@ func (results ResultList) Durations() map[string][]float64 {
 	return d
 }
 
-func GetUrl(requestUrl string) *Result {
+func GetUrl(requestUrl string, client *http.Client) *Result {
 	if b.startedCount >= *requests {
 		return nil
 	}
@@ -159,15 +159,9 @@ func GetUrl(requestUrl string) *Result {
 	}
 
 	req = req.WithContext(httpstat.WithHTTPStat(req.Context(), &r.httpstat))
-	if !*keepalive {
-		req.Close = true
-	}
 
 	b.SetLasttime(time.Now())
 
-	client := &http.Client{
-		Timeout: time.Duration(*timeout) * time.Second,
-	}
 	resp, err := client.Do(req)
 	if err != nil {
 		b.IncrBad()
@@ -212,8 +206,15 @@ func GetUrl(requestUrl string) *Result {
 }
 
 func Request(c chan string, r chan *Result) {
+	tr := &http.Transport{
+		DisableKeepAlives: !*keepalive,
+	}
+	client := &http.Client{
+		Timeout:   time.Duration(*timeout) * time.Second,
+		Transport: tr,
+	}
 	for requestUrl := range c {
-		r <- GetUrl(requestUrl)
+		r <- GetUrl(requestUrl, client)
 	}
 }
 
