@@ -17,6 +17,7 @@ class Benchmark
     @max_concurrency = opts[:max_concurrency]
     @step = opts[:step]
     @interval_sec = opts[:interval_sec]
+    @keepalive = opts[:keepalive]
 
     @concurrencies = (@min_concurrency..@max_concurrency).select { |n| n == 1 || (n % @step).zero? }
     @ab_results = []
@@ -27,9 +28,9 @@ class Benchmark
   def run
     @concurrencies.each do |concurrency|
       STDERR.print "concurrency: #{concurrency}\r"
-      @ab_results << do_request(AB, '-q', concurrency, AB_PATTERN)
-      @go_ab_results << do_request(GO_AB, '-q', concurrency, AB_PATTERN)
-      @hey_results << do_request(HEY, '', concurrency, HEY_PATTERN)
+      @ab_results << do_request(AB, ab_opts, concurrency, AB_PATTERN)
+      @go_ab_results << do_request(GO_AB, ab_opts, concurrency, AB_PATTERN)
+      @hey_results << do_request(HEY, hey_opts, concurrency, HEY_PATTERN)
       sleep(@interval_sec)
     end
     STDERR.puts ""
@@ -49,6 +50,22 @@ class Benchmark
     `#{cmd} #{opts} -n #{@requests} -c #{concurrency} #{@url}`.match(pattern) { |m| throughput = m[1] }
     throughput.to_f
   end
+
+  def ab_opts
+    opts = ['-q']
+    if @keepalive
+      opts << '-k'
+    end
+    opts.join(' ')
+  end
+
+  def hey_opts
+    opts = []
+    if !@keepalive
+      opts << '-disable-keepalive'
+    end
+    opts.join(' ')
+  end
 end
 
 STDOUT.sync = true
@@ -60,6 +77,7 @@ opts = {
   max_concurrency: 100,
   step: 10,
   interval_sec: 30,
+  keepalive: false,
 }
 
 option_parser.on('-u', '--url URL') { |v| opts[:url] = v }
@@ -67,6 +85,7 @@ option_parser.on('-n', '--requests Number of Requests') { |v| opts[:requests] = 
 option_parser.on('-c', '--concurrency Max concurrency') { |v| opts[:max_concurrency] = v.to_i }
 option_parser.on('-s', '--step Number of increment step') { |v| opts[:step] = v.to_i }
 option_parser.on('-i', '--interval Interval(sec) between benchmark') { |v| opts[:interval_sec] = v.to_i }
+option_parser.on('-k', '--keepalive', 'Enable keepalive') { |v| opts[:keepalive] = true }
 
 option_parser.parse!(ARGV)
 
